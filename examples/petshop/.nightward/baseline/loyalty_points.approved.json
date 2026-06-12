@@ -1,0 +1,8 @@
+{
+  "group": "loyalty",
+  "name": "loyalty_points",
+  "payload": {
+    "points": 3,
+    "tier": "silver"
+  }
+}

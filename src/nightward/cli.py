@@ -1,0 +1,292 @@
+"""nightward CLI - init / run / review / doctor / approve / reject / gate / status."""
+from __future__ import annotations
+
+import functools
+import json
+import sys
+from pathlib import Path
+
+import typer
+from rich.console import Console
+
+from .core.baseline import Store
+from .core.diff import UNCHANGED, compare
+from .errors import NightwardError
+from .runner import execute_run, judge_from_meta, recompute
+from .signal import status_payload
+from .view import build_site
+
+# Captured payloads and diffs can contain any character (e.g. Hangul). On a
+# non-UTF-8 Windows console (cp949) rich's legacy win32 writer raises
+# UnicodeEncodeError. Route output through sys.stdout as UTF-8 (replacing only
+# what truly can't be shown) and disable the legacy writer so nothing crashes.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+    except (AttributeError, ValueError):  # pragma: no cover - non-reconfigurable stream
+        pass
+
+app = typer.Typer(
+    help="nightward - regression firewall for AI-driven changes",
+    no_args_is_help=True,
+    add_completion=False,
+)
+console = Console(legacy_windows=False)
+err_console = Console(stderr=True, legacy_windows=False)
+
+DEFAULT_DIR = ".nightward"
+
+# judge_verdicts.json is deliberately NOT ignored: it is the committed ledger
+# that keeps judged-SAME boundaries deterministic on fresh clones / CI.
+GITIGNORE_LINES = [
+    "# nightward: approved baseline IS committed; transient state is not",
+    ".nightward/pending/",
+    ".nightward/rejected/",
+    ".nightward/report.json",
+    ".nightward/run_meta.json",
+]
+
+
+def handle_errors(fn):
+    """Turn NightwardError into a clean stderr message + exit code 2."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except NightwardError as exc:
+            err_console.print(f"[red]error:[/red] {exc}")
+            raise typer.Exit(2) from None
+    return wrapper
+
+
+def _store(dir_: str) -> Store:
+    return Store(Path(dir_))
+
+
+def _check_dir(dir_: str) -> None:
+    p = Path(dir_)
+    if p.exists() and not p.is_dir():
+        raise NightwardError(f"--dir {dir_!r} exists but is not a directory")
+
+
+def _print_summary(report: dict) -> None:
+    c = report["counts"]
+    if report["boundary"] == "intact":
+        console.print("\n[bold]Boundary:[/bold] [green]intact[/green]")
+    else:
+        console.print(f"\n[bold]Boundary:[/bold] [red]breached[/red] "
+                      f"({report['unapproved']} unapproved)")
+    console.print(f"unchanged={c['unchanged']} changed={c['changed']} "
+                  f"new={c['new']} removed={c['removed']}")
+    if c.get("judged_same"):
+        console.print(f"[dim]{c['judged_same']} fingerprint mismatch(es) ruled "
+                      f"semantically SAME by the judge[/dim]")
+    for group, items in report.get("blast_radius", {}).items():
+        console.print(f"\n[yellow]group: {group}[/yellow]")
+        for it in items:
+            judged = (f" [dim](judged DIFFERENT by {it['judge_model']})[/dim]"
+                      if it.get("judged") else "")
+            console.print(f"  - [[cyan]{it['kind']}[/cyan]] {it['name']}{judged}")
+
+
+@app.command()
+@handle_errors
+def init(dir: str = typer.Option(DEFAULT_DIR, help="Nightward storage dir")):
+    """Create the nightward store and add ignore rules to .gitignore."""
+    _check_dir(dir)
+    store = _store(dir)
+    store.ensure()
+    console.print(f"[green]created[/green] {store.root}/ (baseline, pending)")
+
+    gi = Path(".gitignore")
+    existing = gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
+    missing = [ln for ln in GITIGNORE_LINES if ln not in existing]
+    if missing:
+        with gi.open("a", encoding="utf-8") as fh:
+            if existing and existing[-1].strip():
+                fh.write("\n")
+            fh.write("\n".join(missing) + "\n")
+        console.print(f"[green]updated[/green] .gitignore (+{len(missing)} lines)")
+    console.print("\nNext: capture behaviors with the `behavior` pytest fixture, "
+                  "then `nightward run <path>` and `nightward approve --all`.")
+
+
+@app.command()
+@handle_errors
+def run(path: str = typer.Argument(".", help="Path passed to pytest"),
+        dir: str = typer.Option(DEFAULT_DIR, help="Nightward storage dir"),
+        judge: str | None = typer.Option(
+            None, help="Semantic judge for semantic=True behaviors, as provider:model "
+                       "(e.g. anthropic:claude-haiku-4-5, persona:editor). "
+                       "Default: $NIGHTWARD_JUDGE")):
+    """Re-run tests, capture behaviors, compute the blast radius."""
+    _check_dir(dir)
+    console.print(f"[dim]$ pytest {path} --nightward-record --nightward-dir {dir}[/dim]")
+    result = execute_run(path, dir, judge_spec=judge)
+    if result["pytest_returncode"] == 1:
+        err_console.print("[yellow]warning:[/yellow] some tests failed - captured "
+                          "behaviors may be incomplete; blast radius may be unreliable")
+    if result["skipped"]:
+        err_console.print(f"[yellow]warning:[/yellow] {result['skipped']} test(s) skipped - "
+                          "skipped behaviors appear as REMOVED; blast radius may show "
+                          "false positives")
+    _print_summary(result["report"])
+
+
+@app.command()
+@handle_errors
+def review(dir: str = typer.Option(DEFAULT_DIR)):
+    """Show the blast radius with full diffs."""
+    report = _store(dir).load_report()
+    if not report:
+        raise NightwardError("no report yet - run `nightward run` first")
+    if report["boundary"] == "intact":
+        console.print("[green]boundary intact - nothing to review[/green]")
+        return
+    for group, items in report.get("blast_radius", {}).items():
+        console.print(f"\n[yellow]group: {group}[/yellow]")
+        for it in items:
+            console.print(f"\n[bold][[cyan]{it['kind']}[/cyan]] {it['name']}[/bold]")
+            console.print(it.get("diff", "") or "[dim](no text diff)[/dim]")
+
+
+def _approve_one(store: Store, name: str, baseline, pending) -> str:
+    if name in pending:
+        store.approve(name)
+        return "approved"
+    if name in baseline:
+        store.approve_removal(name)
+        return "removed"
+    raise NightwardError(f"nothing to approve for {name!r}")
+
+
+@app.command()
+@handle_errors
+def approve(name: str | None = typer.Argument(None),
+            all_: bool = typer.Option(False, "--all", help="Approve every pending change"),
+            dir: str = typer.Option(DEFAULT_DIR)):
+    """Promote pending behavior(s) into the approved baseline."""
+    store = _store(dir)
+    baseline = store.load_baseline()
+    pending = store.load_pending()
+
+    if all_:
+        targets = [c.name for c in compare(baseline, pending) if c.kind != UNCHANGED]
+    elif name:
+        targets = [name]
+    else:
+        raise NightwardError("specify a behavior name or --all")
+    if not targets:
+        console.print("nothing to approve - boundary already intact")
+        return
+
+    for n in targets:
+        verb = _approve_one(store, n, baseline, pending)
+        console.print(f"[green]{verb}[/green] {n}")
+    # Reuse the last run's judge (cached verdicts) so judged-SAME behaviors
+    # don't flip back to CHANGED the moment something else is approved.
+    _print_summary(recompute(store, judge=judge_from_meta(store)))
+
+
+@app.command()
+@handle_errors
+def reject(name: str, dir: str = typer.Option(DEFAULT_DIR)):
+    """Confirm a change as a real regression. Boundary stays breached."""
+    store = _store(dir)
+    store.mark_rejected(name)
+    console.print(f"[red]rejected[/red] {name} - boundary stays breached. "
+                  f"Fix the code and re-run `nightward run`.")
+
+
+@app.command()
+@handle_errors
+def doctor(dir: str = typer.Option(DEFAULT_DIR)):
+    """Name the volatile fields behind CHANGED behaviors and suggest scrub rules."""
+    from .core.doctor import diagnose
+    store = _store(dir)
+    pending = store.load_pending()
+    if not pending:
+        raise NightwardError("no pending capture - run `nightward run` first")
+    diag = diagnose(store.load_baseline(), pending)
+    if not diag["changed"]:
+        console.print("[green]no CHANGED behaviors - nothing to diagnose[/green]")
+        return
+    for name, info in diag["behaviors"].items():
+        console.print(f"\n[bold]{name}[/bold]")
+        for p in info["volatile"]:
+            console.print(f"  ~ {p}")
+        for p in info["structural"]:
+            console.print(f"  ! {p} [dim](structural - scrub cannot hide this)[/dim]")
+    if diag["suggestions"]:
+        console.print("\n[bold]if these fields are noise, not regressions[/bold] "
+                      "(volatile by design), tame them in conftest.py:")
+        console.print("  [cyan]from nightward import scrub[/cyan]")
+        for line in diag["suggestions"]:
+            console.print(f"  [cyan]{line}[/cyan]")
+        console.print("then re-run [cyan]nightward run[/cyan]. If they are real "
+                      "changes, approve or fix instead - never scrub a regression.")
+        console.print("[yellow]caution:[/yellow] register_field masks that key in "
+                      "[bold]every[/bold] behavior, not just the noisy one - a real "
+                      "regression in the same field elsewhere would be hidden too.")
+    else:
+        console.print("\nno field-level suggestions - the changes look structural "
+                      "(or whole-value); review and approve/fix instead")
+
+
+@app.command()
+@handle_errors
+def gate(dir: str = typer.Option(DEFAULT_DIR)):
+    """Exit 0 if the boundary is intact, 1 otherwise (for CI / agent loops)."""
+    report = _store(dir).load_report()
+    if report is None:
+        raise NightwardError("no report yet - run `nightward run` first")
+    if report.get("boundary") == "intact":
+        console.print("[green]boundary intact[/green]")
+        raise typer.Exit(0)
+    console.print(f"[red]boundary breached[/red] ({report.get('unapproved', 0)} unapproved)")
+    raise typer.Exit(1)
+
+
+@app.command()
+@handle_errors
+def view(dir: str = typer.Option(DEFAULT_DIR, help="Nightward storage dir to read"),
+         out: str = typer.Option("nightward-site", help="Output directory for the static site"),
+         serve: bool = typer.Option(True, "--serve/--no-serve",
+                                    help="Serve locally and open a browser after building"),
+         port: int = typer.Option(8000, help="Port for --serve"),
+         open_browser: bool = typer.Option(True, "--open/--no-open",
+                                           help="Open a browser when serving")):
+    """Build a static, read-only blast-radius dashboard (view it in a browser)."""
+    _check_dir(dir)
+    out_path = build_site(Path(dir), Path(out))
+    console.print(f"[green]built[/green] {out_path}/ (index.html, app.js, style.css, data.json)")
+    if serve:
+        from .view.serve import serve as _serve
+        _serve(out_path, port=port, open_browser=open_browser)
+    else:
+        console.print(f"open it with:  [cyan]python -m http.server -d {out_path} {port}[/cyan]  "
+                      "(fetch needs http, not file://)")
+
+
+@app.command()
+@handle_errors
+def status(dir: str = typer.Option(DEFAULT_DIR),
+           json_: bool = typer.Option(False, "--json", help="Machine-readable output")):
+    """Print boundary status - the stop-condition signal for agent loops."""
+    payload = status_payload(_store(dir).load_report())
+    if json_:
+        print(json.dumps(payload, ensure_ascii=False))
+    else:
+        console.print(payload)
+
+
+@app.command("mcp")
+@handle_errors
+def mcp_cmd():
+    """Start the MCP server (stdio) for AI agents - exposes run/status, NOT approve."""
+    from .mcp_server import serve
+    serve()
+
+
+if __name__ == "__main__":
+    app()

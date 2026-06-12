@@ -1,0 +1,8 @@
+{
+  "group": "fulfillment",
+  "name": "shipping_fee",
+  "payload": {
+    "fee": 0.0,
+    "free_shipping": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "group": "billing",
+  "name": "checkout_total",
+  "payload": {
+    "subtotal": 25.5,
+    "tax": 2.55,
+    "total": 28.05
+  }
+}

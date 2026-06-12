@@ -1,0 +1,57 @@
+name: release
+
+# Publishes nightward to PyPI. MANUAL DISPATCH ONLY — publishing is
+# irreversible (sdists/wheels are mirrored immediately), so a human pushes
+# the button after the RELEASING.md checklist is green.
+#
+# Auth: PyPI Trusted Publishing (OIDC) — no long-lived token stored anywhere.
+# One-time setup on pypi.org: project "nightward" -> Publishing -> add GitHub
+# publisher (owner: JunghyunRyu, repo: nightward, workflow: release.yml,
+# environment: pypi).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: pytest -q
+
+  build:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - run: pip install dist/*.whl && nightward --help  # smoke: the wheel installs and runs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi   # add required reviewers here for a second human gate
+    permissions:
+      id-token: write   # OIDC for Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,9 @@
+{
+  "group": "facts",
+  "name": "top_story",
+  "payload": {
+    "id": "s2",
+    "title": "Record IPO prices on Friday",
+    "views": 12400
+  }
+}

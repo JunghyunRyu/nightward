@@ -1,0 +1,16 @@
+{
+  "group": "summary",
+  "name": "inbox_summary",
+  "payload": {
+    "important": 4,
+    "read": 34,
+    "thread_count": 32,
+    "total": 50,
+    "total_attachment_bytes": 109032900,
+    "total_attachments": 46,
+    "total_size_bytes": 5493687,
+    "unique_domains": 6,
+    "unique_senders": 10,
+    "unread": 16
+  }
+}

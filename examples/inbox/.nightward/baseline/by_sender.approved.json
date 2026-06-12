@@ -1,0 +1,26 @@
+{
+  "group": "senders",
+  "name": "by_sender",
+  "payload": [
+    {
+      "count": 7,
+      "sender": "hugo@umbrella.co"
+    },
+    {
+      "count": 6,
+      "sender": "bob@acme.com"
+    },
+    {
+      "count": 6,
+      "sender": "jack@newsletter.shop"
+    },
+    {
+      "count": 6,
+      "sender": "erin@initech.com"
+    },
+    {
+      "count": 6,
+      "sender": "alice@acme.com"
+    }
+  ]
+}

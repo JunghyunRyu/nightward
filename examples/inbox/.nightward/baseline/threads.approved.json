@@ -1,0 +1,50 @@
+{
+  "group": "threads",
+  "name": "threads",
+  "payload": [
+    {
+      "messages": 5,
+      "participants": [
+        "alice@acme.com",
+        "bob@acme.com",
+        "grace@umbrella.co",
+        "jack@newsletter.shop"
+      ],
+      "thread_id": "thr-001"
+    },
+    {
+      "messages": 3,
+      "participants": [
+        "alice@acme.com",
+        "erin@initech.com",
+        "hugo@umbrella.co"
+      ],
+      "thread_id": "thr-011"
+    },
+    {
+      "messages": 3,
+      "participants": [
+        "deepak@globex.com",
+        "erin@initech.com",
+        "ivy@hooli.io"
+      ],
+      "thread_id": "thr-019"
+    },
+    {
+      "messages": 2,
+      "participants": [
+        "erin@initech.com",
+        "jack@newsletter.shop"
+      ],
+      "thread_id": "thr-004"
+    },
+    {
+      "messages": 2,
+      "participants": [
+        "carla@globex.com",
+        "ivy@hooli.io"
+      ],
+      "thread_id": "thr-007"
+    }
+  ]
+}

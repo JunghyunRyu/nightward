@@ -1,0 +1,13 @@
+{
+  "group": "timeline",
+  "name": "by_weekday",
+  "payload": {
+    "Fri": 10,
+    "Mon": 4,
+    "Sat": 6,
+    "Sun": 6,
+    "Thu": 10,
+    "Tue": 8,
+    "Wed": 6
+  }
+}

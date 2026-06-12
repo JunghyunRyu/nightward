@@ -1,0 +1,36 @@
+{
+  "group": "domains",
+  "name": "by_domain",
+  "payload": [
+    {
+      "count": 12,
+      "domain": "acme.com",
+      "pct": 24.0
+    },
+    {
+      "count": 12,
+      "domain": "umbrella.co",
+      "pct": 24.0
+    },
+    {
+      "count": 9,
+      "domain": "initech.com",
+      "pct": 18.0
+    },
+    {
+      "count": 7,
+      "domain": "globex.com",
+      "pct": 14.0
+    },
+    {
+      "count": 6,
+      "domain": "newsletter.shop",
+      "pct": 12.0
+    },
+    {
+      "count": 4,
+      "domain": "hooli.io",
+      "pct": 8.0
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "group": "auth",
+  "name": "user_login",
+  "payload": {
+    "roles": [
+      "member"
+    ],
+    "status": "ok",
+    "user": "alice"
+  }
+}

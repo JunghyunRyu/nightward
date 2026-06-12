@@ -1,0 +1,21 @@
+{
+  "group": "attachments",
+  "name": "attachments_summary",
+  "payload": {
+    "by_type": {
+      "docx": 6,
+      "pdf": 10,
+      "png": 10,
+      "xlsx": 10,
+      "zip": 10
+    },
+    "bytes_by_type": {
+      "docx": 13922329,
+      "pdf": 31191762,
+      "png": 21093088,
+      "xlsx": 24737468,
+      "zip": 18088253
+    },
+    "total_count": 46
+  }
+}

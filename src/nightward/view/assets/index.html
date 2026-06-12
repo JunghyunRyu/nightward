@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Security: no inline script, data is fetched as JSON and rendered via textContent. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>nightward — blast radius</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">⊟</span>
+      <span class="brand-name">nightward</span>
+      <span class="brand-sub">regression firewall</span>
+    </div>
+    <div id="run-meta" class="run-meta"></div>
+  </header>
+
+  <main class="wrap">
+    <!-- boundary status -->
+    <section id="banner" class="banner" aria-live="polite"></section>
+
+    <!-- skipped/failed + data-exposure warnings -->
+    <section id="warnings" class="warnings"></section>
+
+    <!-- empty / no-report / no-baseline guidance -->
+    <section id="empty" class="empty" hidden></section>
+
+    <!-- counts strip -->
+    <section id="counts" class="counts" hidden></section>
+
+    <!-- bulk approve helpers -->
+    <section id="bulk" class="bulk" hidden></section>
+
+    <!-- filters -->
+    <section id="controls" class="controls" hidden></section>
+
+    <!-- kind legend -->
+    <section id="legend" class="legend" hidden></section>
+
+    <!-- blast radius -->
+    <section id="groups" class="groups"></section>
+  </main>
+
+  <footer class="site-footer">
+    <span>nightward view — read-only. Decisions (approve/reject) happen in the CLI.</span>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>

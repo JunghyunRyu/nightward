@@ -1,0 +1,49 @@
+name: pages
+
+# Publishes ONLY the clean-room synthetic demo (scripts/build_demo.py).
+# It never reads a real .nightward/ store, so no captured user data can leak.
+#
+# NOTE: GitHub Pages serves a public URL only for public repos (or paid plans).
+# nightward is intentionally private pending a legal review, so this workflow is
+# wired up but gated behind manual dispatch — flip it on only after that review,
+# or point it at a dedicated public demo repo. See the design spec, §6.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]   # enable after the public/private decision is made
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Build clean-room demo site
+        run: python scripts/build_demo.py demo-site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: demo-site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

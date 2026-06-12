@@ -1,0 +1,12 @@
+{
+  "group": "labels",
+  "name": "by_label",
+  "payload": {
+    "finance": 15,
+    "inbox": 12,
+    "promotions": 8,
+    "social": 12,
+    "updates": 10,
+    "work": 18
+  }
+}

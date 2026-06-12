@@ -1,0 +1,9 @@
+{
+  "group": "facts",
+  "name": "section_counts",
+  "payload": {
+    "markets": 2,
+    "science": 1,
+    "sports": 1
+  }
+}
