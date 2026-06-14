@@ -22,8 +22,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/JunghyunRyu/nightward"
-Issues = "https://github.com/JunghyunRyu/nightward/issues"
+Homepage = "https://github.com/LunenLabs/nightward"
+Issues = "https://github.com/LunenLabs/nightward/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5", "mcp>=1.0", "pypdf>=4", "python-docx>=1", "openpyxl>=3.1"]

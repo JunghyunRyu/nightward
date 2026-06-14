@@ -44,7 +44,7 @@ file is deleted. Pick one:
 ## 3. PyPI one-time setup
 
 - [ ] pypi.org → account with 2FA.
-- [ ] Add **Trusted Publisher** for the project: owner `JunghyunRyu`, repo
+- [ ] Add **Trusted Publisher** for the project: owner `LunenLabs`, repo
       `nightward`, workflow `release.yml`, environment `pypi`.
       (First release of a new project: use a "pending publisher" so no token
       is ever created.)

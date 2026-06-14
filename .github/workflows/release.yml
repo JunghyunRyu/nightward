@@ -6,7 +6,7 @@ name: release
 #
 # Auth: PyPI Trusted Publishing (OIDC) — no long-lived token stored anywhere.
 # One-time setup on pypi.org: project "nightward" -> Publishing -> add GitHub
-# publisher (owner: JunghyunRyu, repo: nightward, workflow: release.yml,
+# publisher (owner: LunenLabs, repo: nightward, workflow: release.yml,
 # environment: pypi).
 
 on:
